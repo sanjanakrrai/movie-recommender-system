@@ -12,17 +12,13 @@ st.set_page_config(page_title="Movie Recommender", layout="wide")
 # -------------------------------
 movies = pickle.load(open('movie_list.pkl', 'rb'))
 
-import requests
-import pickle
-
 def load_model():
-    url = "https://drive.google.com/uc?export=download&id=1GAC5wkLzheXAwC535ICNzRKzaHrycors"
+    url = "https://dl.dropboxusercontent.com/scl/fi/jhbykfrusg79wiwxxnrn0/model.pkl?rlkey=kdjh7v440mg6v4q57sz4vsuwd"
 
-    response = requests.get(url, stream=True)
+    response = requests.get(url)
 
     with open("model.pkl", "wb") as f:
-        for chunk in response.iter_content(chunk_size=8192):
-            f.write(chunk)
+        f.write(response.content)
 
     with open("model.pkl", "rb") as f:
         model = pickle.load(f)
