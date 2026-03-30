@@ -1,18 +1,43 @@
 import streamlit as st
 import pickle
+import pandas as pd
 import requests
 
-# -------------------------------
-# CONFIG (IMPORTANT)
-# -------------------------------
+# -------------------- PAGE CONFIG --------------------
 st.set_page_config(page_title="Movie Recommender", layout="wide")
 
-# -------------------------------
-# LOAD DATA
-# -------------------------------
-movies = pickle.load(open('movie_list.pkl', 'rb'))
+# -------------------- CUSTOM CSS --------------------
+st.markdown("""
+<style>
+body {
+    background-color: #0e1117;
+}
+img {
+    border-radius: 10px;
+}
+img:hover {
+    transform: scale(1.05);
+    transition: 0.3s;
+}
+.stButton>button {
+    background-color: #e50914;
+    color: white;
+    border-radius: 8px;
+    height: 50px;
+    width: 250px;
+    font-size: 18px;
+}
+h1 {
+    text-align: center;
+}
+</style>
+""", unsafe_allow_html=True)
 
+# -------------------- LOAD MODEL --------------------
+@st.cache_resource
 def load_model():
+    import requests
+
     url = "https://dl.dropboxusercontent.com/scl/fi/jhbykfrusg79wiwxxnrn0/model.pkl?rlkey=kdjh7v440mg6v4q57sz4vsuwd"
 
     response = requests.get(url)
@@ -20,129 +45,71 @@ def load_model():
     with open("model.pkl", "wb") as f:
         f.write(response.content)
 
-    with open("model.pkl", "rb") as f:
-        model = pickle.load(f)
-
+    model = pickle.load(open("model.pkl", "rb"))
     return model
 
 similarity = load_model()
-# -------------------------------
-# CUSTOM CSS
-# -------------------------------
-st.markdown("""
-<style>
-.main {
-    background-color: #0e1117;
-}
 
-.title {
-    font-size: 50px;
-    font-weight: bold;
-    text-align: center;
-    color: white;
-    margin-bottom: 20px;
-}
+# Load movie data
+movies = pickle.load(open('movie_list.pkl', 'rb'))
 
-.movie-container {
-    text-align: center;
-}
+# -------------------- TMDB POSTER --------------------
+def fetch_poster(movie_id):
+    api_key = "e6f7d68e57c1fcfca8a61d9938d29a4a"  
+    url = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={api_key}&language=en-US"
+    data = requests.get(url).json()
+    return "https://image.tmdb.org/t/p/w500/" + data['poster_path']
 
-.movie-container img {
-    border-radius: 12px;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.movie-container img:hover {
-    transform: scale(1.08);
-    box-shadow: 0px 10px 30px rgba(255,0,0,0.6);
-}
-
-.movie-title {
-    font-size: 16px;
-    color: white;
-    margin-top: 8px;
-}
-
-.stButton>button {
-    background-color: #e50914;
-    color: white;
-    border-radius: 8px;
-    height: 45px;
-    width: 220px;
-    font-size: 16px;
-    font-weight: bold;
-    border: none;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# -------------------------------
-# FETCH POSTER
-# -------------------------------
-@st.cache_data
-def fetch_poster(title):
-    try:
-        url = f"https://api.themoviedb.org/3/search/movie?api_key=e6f7d68e57c1fcfca8a61d9938d29a4a&query={title}"
-        data = requests.get(url).json()
-
-        if data['results']:
-            poster_path = data['results'][0].get('poster_path')
-            if poster_path:
-                return f"https://image.tmdb.org/t/p/w500/{poster_path}"
-
-        return "https://via.placeholder.com/500x750?text=No+Poster"
-
-    except:
-        return "https://via.placeholder.com/500x750?text=Error"
-
-# -------------------------------
-# RECOMMEND FUNCTION
-# -------------------------------
+# -------------------- RECOMMEND FUNCTION --------------------
 def recommend(movie):
-    movie_index = movies[movies['title'] == movie].index[0]
-    distances = similarity[movie_index]
+    index = movies[movies['title'] == movie].index[0]
+    distances = similarity[index]
+    movies_list = sorted(list(enumerate(distances)), reverse=True, key=lambda x: x[1])[1:6]
 
-    movies_list = sorted(
-        list(enumerate(distances)),
-        reverse=True,
-        key=lambda x: x[1]
-    )[1:6]
-
-    names = []
-    posters = []
+    recommended_movies = []
+    recommended_posters = []
 
     for i in movies_list:
-        title = movies.iloc[i[0]].title
-        names.append(title)
-        posters.append(fetch_poster(title))
+        movie_id = movies.iloc[i[0]].movie_id
+        recommended_movies.append(movies.iloc[i[0]].title)
+        recommended_posters.append(fetch_poster(movie_id))
 
-    return names, posters
+    return recommended_movies, recommended_posters
 
-# -------------------------------
-# UI HEADER
-# -------------------------------
-st.markdown('<div class="title">🎬 Movie Recommender</div>', unsafe_allow_html=True)
+# -------------------- UI --------------------
+st.title('🎬 Movie Recommender')
 
-# -------------------------------
-# SELECT BOX
-# -------------------------------
 selected_movie = st.selectbox(
     "Choose a movie",
     movies['title'].values
 )
 
-# -------------------------------
-# BUTTON
-# -------------------------------
-if st.button("Recommend Movies"):
+if st.button('Recommend Movies'):
+    with st.spinner('Finding best movies for you...'):
+        names, posters = recommend(selected_movie)
 
-    names, posters = recommend(selected_movie)
+    col1, col2, col3, col4, col5 = st.columns(5)
 
-    cols = st.columns(5)
+    with col1:
+        st.image(posters[0])
+        st.caption(names[0])
 
-    for i in range(5):
-        with cols[i]:
-            st.markdown("<div class='movie-container'>", unsafe_allow_html=True)
-            st.image(posters[i], use_container_width=True)
-            st.markdown(f"<div class='movie-title'>{names[i]}</div>", unsafe_allow_html=True)
-            st.markdown("</div>", unsafe_allow_html=True)
+    with col2:
+        st.image(posters[1])
+        st.caption(names[1])
+
+    with col3:
+        st.image(posters[2])
+        st.caption(names[2])
+
+    with col4:
+        st.image(posters[3])
+        st.caption(names[3])
+
+    with col5:
+        st.image(posters[4])
+        st.caption(names[4])
+
+# -------------------- FOOTER --------------------
+st.markdown("---")
+st.markdown("Made with ❤️ by Sanjana")
