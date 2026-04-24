@@ -2,7 +2,7 @@
 
 A content-based movie recommendation system built using Machine Learning and deployed using Streamlit.
 
-🔗 **Live App:** https://movie-recommender-system-lnvybrc24gnercbj598c3u.streamlit.app  
+🔗 **Live App:** https://movie-recommender-system-lnyvbrc24gnercbj598c3u.streamlit.app/  
 💻 **Source Code:** https://github.com/sanjanakrrai/movie-recommender-system  
 
 ---
